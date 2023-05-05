@@ -20,6 +20,18 @@ class RidgeRegression(BaseEstimator, RegressorMixin):
                                                  node_name="prediction")
         # Build computation graph
         # TODO: ADD YOUR CODE HERE
+        self.square_error = nodes.SquaredL2DistanceNode(a=self.prediction, b=self.y,
+                                                         node_name="square_error")
+        self.l2_penalty = nodes.L2NormPenaltyNode(l2_reg=l2_reg, w=self.w,
+                                                  node_name="l2_penalty")
+        self.objective = nodes.SumNode(a=self.square_error, b=self.l2_penalty,
+                                       node_name="objective")
+
+        self.graph = graph.ComputationGraphFunction(inputs=[self.x],
+                                                    outcomes=[self.y],
+                                                    parameters=[self.w, self.b],
+                                                    prediction=self.prediction,
+                                                    objective=self.objective)
 
         
     def fit(self, X, y):

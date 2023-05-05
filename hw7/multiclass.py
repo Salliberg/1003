@@ -28,7 +28,24 @@ class MulticlassClassifier(BaseEstimator, RegressorMixin):
         self.num_class = num_class
 
         # Build computation graph
-        # TODO: add your code here
+        self.x = nodes.ValueNode(node_name="x")
+        self.y = nodes.ValueNode(node_name="y")
+        self.W1 = nodes.ValueNode(node_name="W1")
+        self.b1 = nodes.ValueNode(node_name="b1")
+        self.W2 = nodes.ValueNode(node_name="W2")
+        self.b2 = nodes.ValueNode(node_name="b2")
+
+        self.affine1 = nodes.AffineNode(W=self.W1, x=self.x, b=self.b1, node_name="affine1")
+        self.hidden = nodes.TanhNode(a=self.affine1, node_name="hidden")
+        self.affine2 = nodes.AffineNode(W=self.W2, x=self.hidden, b=self.b2, node_name="affine2")
+        self.prediction = nodes.SoftmaxNode(z=self.affine2, node_name="prediction")
+        self.objective = nodes.NLLNode(y_pred=self.prediction, y_true=self.y, node_name="NLL")
+
+        # Group nodes into types to construct computation graph function
+        self.inputs = [self.x]
+        self.outcomes = [self.y]
+        self.parameters = [self.W1, self.b1, self.W2, self.b2]
+        self.graph = graph.ComputationGraphFunction(self.inputs, self.outcomes, self.parameters, self.prediction, self.objective)
 
     def fit(self, X, y):
         num_instances, num_ftrs = X.shape

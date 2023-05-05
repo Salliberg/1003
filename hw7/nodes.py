@@ -129,16 +129,17 @@ class L2NormPenaltyNode(object):
         self.w = w
 
     def forward(self):
-        ## Your code
-        pass
+        self.out = self.l2_reg * np.sum(np.square(self.w.out))
+        self.d_out = np.zeros(self.out.shape)
+        return self.out
 
     def backward(self):
-        ## Your code
-        pass
+        grad_w = 2 * self.l2_reg * self.w.out
+        self.w.d_out += grad_w * self.d_out
+        return self.d_out
 
     def get_predecessors(self):
-        ## Your code
-        pass
+        return [self.w]
 
 
 class SumNode(object):
@@ -157,16 +158,16 @@ class SumNode(object):
         self.a = a
 
     def forward(self):
-        # Your code
-        pass
+        self.out = self.a.out + self.b.out
+        self.d_out = np.zeros(self.out.shape)
+        return self.out
 
     def backward(self):
-        # Your code
-        pass
+        self.a.d_out += self.d_out
+        self.b.d_out += self.d_out
 
     def get_predecessors(self):
-        # Your code
-        pass
+        return [self.a, self.b]
 
 
 class AffineNode(object):
@@ -177,7 +178,32 @@ class AffineNode(object):
         x: node for which x.out is a numpy array of shape (d)
         b: node for which b.out is a numpy array of shape (m) (i.e. vector of length m)
     """
-    pass
+    def __init__(self, W, x, b, node_name):
+        self.node_name = node_name
+        self.out = None
+        self.d_out = None
+        self.x = x
+        self.W = W
+        self.b = b
+
+    def forward(self):
+        self.out = np.dot(self.W.out, self.x.out) + self.b.out
+        self.d_out = np.zeros(self.out.shape)
+        return self.out
+
+    def backward(self):
+        d_W = np.outer(self.d_out, self.x.out)
+        d_x = np.dot(self.W.out.T, self.d_out)
+        d_b = self.d_out
+
+        self.W.d_out += d_W
+        self.x.d_out += d_x
+        self.b.d_out += d_b
+
+        return self.d_out
+
+    def get_predecessors(self):
+        return [self.W, self.x, self.b]
 
 
 class TanhNode(object):
@@ -185,15 +211,56 @@ class TanhNode(object):
         Parameters:
         a: node for which a.out is a numpy array
     """
-    pass
+    def __init__(self, a, node_name):
+        self.node_name = node_name
+        self.a = a
+        self.out = None
+        self.d_out = None
 
+    def forward(self):
+        self.out = np.tanh(self.a.out)
+        self.d_out = np.zeros(self.out.shape)
+        return self.out
 
+    def backward(self):
+        d_a = self.d_out * (1 - self.out ** 2)
+        self.a.d_out += d_a
+        return self.d_out
+
+    def get_predecessors(self):
+        return [self.a]
+    
 class SoftmaxNode(object):
     """ Softmax node
         Parameters:
         z: node for which z.out is a numpy array
     """
-    pass
+    def __init__(self, z, node_name):
+        self.node_name = node_name
+        self.z = z
+        self.out = None
+        self.d_out = None
+
+    def forward(self):
+        self.out = np.exp(self.z.out) / np.sum(np.exp(self.z.out))
+        self.d_out = np.zeros(self.out.shape)
+        return self.out
+
+    def backward(self):
+        norm = np.sum(np.exp(self.z.out))
+        for i in range(len(self.z.out)):
+            expx = np.exp(self.z.out[i])
+            for j in range(len(self.z.out)):
+                expy = np.exp(self.z.out[j])
+                grady = expy
+                if i != j:
+                    grady = 0
+                division_rule = (grady * norm - expy * expx) / norm**2
+                self.z.d_out[i] += self.d_out[j] * division_rule
+        return self.d_out
+
+    def get_predecessors(self):
+        return [self.z]
 
 
 class NLLNode(object):
@@ -202,4 +269,28 @@ class NLLNode(object):
         y_hat: a node that contains all predictions
         y_true: a node that contains all labels
     """
-    pass
+
+    def __init__(self, y_pred, y_true, node_name):
+        self.node_name = node_name
+        self.y_pred = y_pred
+        self.y_true = y_true
+        self.out = None
+        self.d_out = None
+        
+    def forward(self):
+        self.out = -np.log(self.y_pred.out[self.y_true.out])
+        self.d_out = np.zeros(self.out.shape)
+        return self.out
+    
+    def backward(self):
+        for i in range(len(self.y_pred.out)):
+            if i == self.y_true.out:
+                self.y_pred.d_out[i] = -self.d_out/self.y_pred.out[i]
+            else:
+                self.y_pred.d_out[i] = 0
+        self.y_true.d_out = 0
+        return self.d_out
+    
+    def get_predecessors(self):
+        return [self.y_pred, self.y_true]
+

@@ -19,6 +19,29 @@ class MLPRegression(BaseEstimator, RegressorMixin):
 
         # Build computation graph
         # TODO: ADD YOUR CODE HERE
+        # Build computation graph
+        self.x = nodes.ValueNode(node_name="x")  # to hold a vector input
+        self.y = nodes.ValueNode(node_name="y")  # to hold a scalar response
+
+        # Hidden layer parameters
+        self.W1 = nodes.ValueNode(node_name="W1")
+        self.b1 = nodes.ValueNode(node_name="b1")
+
+        # Output layer parameters
+        self.w2 = nodes.ValueNode(node_name="w2")
+        self.b2 = nodes.ValueNode(node_name="b2")
+
+        # Hidden layer calculation
+        self.affine_hidden = nodes.AffineNode(W=self.W1, x=self.x, b=self.b1, node_name="affine_hidden")
+        self.tanh_hidden = nodes.TanhNode(a=self.affine_hidden, node_name="tanh_hidden")
+
+        # Output layer calculation
+        self.affine_output = nodes.VectorScalarAffineNode(x=self.tanh_hidden, w=self.w2, b=self.b2, node_name="affine_output")
+        #self.square_loss = nodes.SquareLossNode(a=self.affine_output, b=self.y, node_name="square_loss")
+        self.square_loss = nodes.SquaredL2DistanceNode(a=self.affine_output, b=self.y, node_name="square_loss")
+        # Define the graph
+        self.graph = graph.ComputationGraphFunction([self.x], [self.y], [self.W1, self.b1, self.w2, self.b2], self.affine_output, self.square_loss)
+
 
     def fit(self, X, y):
         num_instances, num_ftrs = X.shape
